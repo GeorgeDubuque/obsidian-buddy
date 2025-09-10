@@ -187,6 +187,8 @@ void onDidReceiveNotificationResponse(
   NotificationResponse notificationResponse,
 ) async {
   final String? payload = notificationResponse.payload;
+  debugPrint('notification id: ${notificationResponse.id}');
+  debugPrint('notification action id: ${notificationResponse.actionId}');
   if (notificationResponse.payload != null) {
     debugPrint('notification payload: ${notificationResponse.data.length}');
   }
