@@ -166,6 +166,8 @@ void _setReminder(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      presentBanner: true,
+      presentList: true,
     ),
     //TODO:: add ios
   );
