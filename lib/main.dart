@@ -172,6 +172,7 @@ void _setReminder(
       priority: Priority.high,
       actions: <AndroidNotificationAction>[actionSnooze5Seconds],
     ),
+    iOS: DarwinNotificationDetails(categoryIdentifier: 'reminder'),
     //TODO:: add ios
   );
 
