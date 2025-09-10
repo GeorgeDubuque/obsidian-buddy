@@ -146,6 +146,40 @@ void notificationTapBackground(
   // handle action
 }
 
+void onDidReceiveNotificationResponse(
+  NotificationResponse notificationResponse,
+) async {
+  final String? payload = notificationResponse.payload;
+  debugPrint('notification id: ${notificationResponse.id}');
+  debugPrint('notification action id: ${notificationResponse.actionId}');
+  if (notificationResponse.actionId == snooze5SecondsId) {
+    if (notificationResponse == null || notificationResponse.payload == null) {
+      debugPrint('Notification payload missing! Something is wrong!!!');
+      return;
+    }
+
+    final List<dynamic> notificationDetailsDecoded =
+        jsonDecode(notificationResponse.payload!) as List<dynamic>;
+
+    tz.initializeTimeZones();
+    final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(currentTimeZone));
+
+    tz.TZDateTime reminderTime = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(seconds: 5));
+
+    _setReminder(
+      reminderTime,
+      notificationDetailsDecoded[0],
+      notificationDetailsDecoded[1],
+    );
+  }
+  if (notificationResponse.payload != null) {
+    debugPrint('notification payload: ${notificationResponse.data.length}');
+  }
+}
+
 void _setReminder(
   tz.TZDateTime dateTime,
   String title,
@@ -181,17 +215,6 @@ void _setReminder(
     payload: jsonEncode([title, description, actionSnooze5Seconds.id]),
     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
   );
-}
-
-void onDidReceiveNotificationResponse(
-  NotificationResponse notificationResponse,
-) async {
-  final String? payload = notificationResponse.payload;
-  debugPrint('notification id: ${notificationResponse.id}');
-  debugPrint('notification action id: ${notificationResponse.actionId}');
-  if (notificationResponse.payload != null) {
-    debugPrint('notification payload: ${notificationResponse.data.length}');
-  }
 }
 
 class ObsidianBuddy extends StatelessWidget {
