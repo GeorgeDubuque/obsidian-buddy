@@ -36,8 +36,47 @@ void main() async {
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
   final DarwinInitializationSettings initializationSettingsDarwin =
-      DarwinInitializationSettings();
-
+      DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestSoundPermission: true,
+        requestBadgePermission: true,
+        requestProvisionalPermission: true,
+        requestCriticalPermission: true,
+        // ...
+        notificationCategories: [
+          DarwinNotificationCategory(
+            'reminder',
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                'snooze-5-seconds',
+                'Snooze 5 Seconds',
+              ),
+              DarwinNotificationAction.plain(
+                'id_2',
+                'Action 2',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.destructive,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                'id_3',
+                'Action 3',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+            ],
+            options: <DarwinNotificationCategoryOption>{
+              DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+            },
+          ),
+        ],
+      );
+  final bool? result = await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >()
+      ?.requestPermissions(alert: true, badge: true, sound: true);
   final InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
     iOS: initializationSettingsDarwin,
@@ -341,7 +380,7 @@ class _MyHomePageState extends State<MyHomePage> {
       //  child: const Icon(Icons.notification_add),
       //), // This trailing comma makes auto-formatting nicer for build methods.
       floatingActionButton: FloatingActionButton(
-        onPressed: _readVaultFilesTest,
+        onPressed: _scheduleReminderTest,
         tooltip: 'Open Obsidian',
         child: const Icon(Icons.open_in_new_rounded),
       ), // This trailing comma makes auto-formatting nicer for build methods.
