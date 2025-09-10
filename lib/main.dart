@@ -51,20 +51,6 @@ void main() async {
                 'snooze-5-seconds',
                 'Snooze 5 Seconds',
               ),
-              DarwinNotificationAction.plain(
-                'id_2',
-                'Action 2',
-                options: <DarwinNotificationActionOption>{
-                  DarwinNotificationActionOption.destructive,
-                },
-              ),
-              DarwinNotificationAction.plain(
-                'id_3',
-                'Action 3',
-                options: <DarwinNotificationActionOption>{
-                  DarwinNotificationActionOption.foreground,
-                },
-              ),
             ],
             options: <DarwinNotificationCategoryOption>{
               DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
