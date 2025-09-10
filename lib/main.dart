@@ -50,6 +50,9 @@ void main() async {
               DarwinNotificationAction.plain(
                 'snooze-5-seconds',
                 'Snooze 5 Seconds',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
               ),
             ],
             options: <DarwinNotificationCategoryOption>{
@@ -158,7 +161,12 @@ void _setReminder(
       priority: Priority.high,
       actions: <AndroidNotificationAction>[actionSnooze5Seconds],
     ),
-    iOS: DarwinNotificationDetails(categoryIdentifier: 'reminder'),
+    iOS: DarwinNotificationDetails(
+      categoryIdentifier: 'reminder',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
     //TODO:: add ios
   );
 
