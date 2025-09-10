@@ -395,7 +395,7 @@ class _MyHomePageState extends State<MyHomePage> {
       //  child: const Icon(Icons.notification_add),
       //), // This trailing comma makes auto-formatting nicer for build methods.
       floatingActionButton: FloatingActionButton(
-        onPressed: _scheduleReminderTest,
+        onPressed: _readVaultFilesTest,
         tooltip: 'Open Obsidian',
         child: const Icon(Icons.open_in_new_rounded),
       ), // This trailing comma makes auto-formatting nicer for build methods.
