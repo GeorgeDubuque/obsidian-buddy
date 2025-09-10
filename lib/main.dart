@@ -128,16 +128,7 @@ void notificationTapBackground(
     final List<dynamic> notificationDetailsDecoded =
         jsonDecode(notificationResponse.payload!) as List<dynamic>;
 
-    tz.initializeTimeZones();
-    final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-    tz.TZDateTime reminderTime = tz.TZDateTime.now(
-      tz.local,
-    ).add(const Duration(seconds: 5));
-
-    _setReminder(
-      reminderTime,
+    _setReminder5SecondsFromNow(
       notificationDetailsDecoded[0],
       notificationDetailsDecoded[1],
     );
@@ -157,20 +148,10 @@ void onDidReceiveNotificationResponse(
       debugPrint('Notification payload missing! Something is wrong!!!');
       return;
     }
-
     final List<dynamic> notificationDetailsDecoded =
         jsonDecode(notificationResponse.payload!) as List<dynamic>;
 
-    tz.initializeTimeZones();
-    final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-    tz.TZDateTime reminderTime = tz.TZDateTime.now(
-      tz.local,
-    ).add(const Duration(seconds: 5));
-
-    _setReminder(
-      reminderTime,
+    _setReminder5SecondsFromNow(
       notificationDetailsDecoded[0],
       notificationDetailsDecoded[1],
     );
@@ -178,6 +159,18 @@ void onDidReceiveNotificationResponse(
   if (notificationResponse.payload != null) {
     debugPrint('notification payload: ${notificationResponse.data.length}');
   }
+}
+
+void _setReminder5SecondsFromNow(String title, String description) async {
+  tz.initializeTimeZones();
+  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(currentTimeZone));
+
+  tz.TZDateTime reminderTime = tz.TZDateTime.now(
+    tz.local,
+  ).add(const Duration(seconds: 5));
+
+  _setReminder(reminderTime, title, description);
 }
 
 void _setReminder(
