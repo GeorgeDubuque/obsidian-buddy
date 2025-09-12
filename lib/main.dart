@@ -320,8 +320,6 @@ class _MyHomePageState extends State<MyHomePage> {
     vaultParser.vaultPath = vaultPath;
     DatabaseManager databaseManager = DatabaseManager();
 
-    FilePicker.platform.getDirectoryPath();
-
     Directory vaultDirectory = Directory(vaultPath);
     await SecurityScopedResource.instance.startAccessingSecurityScopedResource(
       vaultDirectory,
