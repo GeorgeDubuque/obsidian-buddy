@@ -321,9 +321,9 @@ class _MyHomePageState extends State<MyHomePage> {
     DatabaseManager databaseManager = DatabaseManager();
 
     Directory vaultDirectory = Directory(vaultPath);
-    await SecurityScopedResource.instance.startAccessingSecurityScopedResource(
-      vaultDirectory,
-    );
+    bool grantedAccessToVault = await SecurityScopedResource.instance
+        .startAccessingSecurityScopedResource(vaultDirectory);
+    debugPrint('granted access to vault: $grantedAccessToVault');
     List<File> files = vaultParser.getFilesInFolder(vaultPath);
     for (File file in files) {
       DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
