@@ -90,8 +90,7 @@ void main() async {
 
   // vault selection
   String? vaultFolderPath = await getVaultPath();
-  vaultFolderPath ??= await pickVaultFolder();
-  setVaultPath(vaultFolderPath!);
+  await selectVault();
 
   // initialize DB
   final dbManager = DatabaseManager();
@@ -114,6 +113,30 @@ Future<void> setVaultPath(String path) async {
 
 Future<String?> pickVaultFolder() async {
   return FilePicker.platform.getDirectoryPath();
+}
+
+Future<void> selectVault() async {
+  String? vaultFolderPath;
+
+  if (Platform.isAndroid) {
+    // Only Android needs storage permission
+    final status = await Permission.storage.request();
+    if (!status.isGranted) {
+      debugPrint('We need storage permission to read the vault!');
+      return;
+    }
+  }
+
+  // Pick vault folder (works on Android & iOS)
+  vaultFolderPath = await FilePicker.platform.getDirectoryPath();
+
+  if (vaultFolderPath == null) {
+    debugPrint('User cancelled folder selection.');
+    return;
+  }
+
+  setVaultPath(vaultFolderPath);
+  debugPrint('Vault path set to: $vaultFolderPath');
 }
 
 @pragma('vm:entry-point')
