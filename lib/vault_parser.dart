@@ -3,6 +3,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:obsidian_buddy/databaseManager.dart';
+import 'package:obsidian_buddy/task.dart';
+import 'package:sqflite/sqflite.dart';
 
 class VaultParser {
   // Private constructor
@@ -18,37 +21,50 @@ class VaultParser {
   }
 
   // Public methods
-  Future<List<dynamic>> parseTasksFromFile(File file) async {
+  Future<List<Task>> parseTasksFromFile(File file) async {
     List<String> lines = await file.readAsLines();
+    List<Task> tasks = [];
+
+    // Regex breakdown:
+    // ^- \[ \]      : matches the start of a task "- [ ]"
+    // (.*?)         : lazily captures task text
+    // ⏳\s*         : matches the hourglass emoji and optional whitespace
+    // (\d{4}-\d{2}-\d{2}) : captures the date
+    // (?:\s+(\d{2}:\d{2}))? : optionally captures the time
+    final taskRegex = RegExp(
+      r'^- \[ \]\s*(.*?)\s*⏳\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?',
+    );
+
+    final dbManager = DatabaseManager();
+
     for (var line in lines) {
-      if (line.startsWith('- [ ]')) {
-        final dateTimeRegex = RegExp(
-          r'⏳\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?',
-        );
+      final match = taskRegex.firstMatch(line);
+      if (match != null) {
+        final taskText = match.group(1)!; // the actual task text
+        final dateString = match.group(2)!;
+        final timeString = match.group(3);
 
-        final match = dateTimeRegex.firstMatch(line);
-        if (match != null) {
-          print('Found scheduled task in ${file.path}');
-          print(line);
-          final dateString = match.group(1)!; // "2025-10-01"
-          final timeString = match.group(2); // "14:30" or null
+        DateTime dueDate;
+        // TODO: make it so we do something with tasks that just have a scheduled date and no time
+        if (timeString != null) {
+          dueDate = DateTime.parse('$dateString $timeString:00');
+          Task currTask = Task(
+            task: taskText,
+            filePath: file.path,
+            reminderDate: dueDate,
+          );
 
-          print('Found date: $dateString');
-          print('Found time: $timeString');
-          DateTime dueDate;
-          if (timeString != null) {
-            dueDate = DateTime.parse(
-              '$dateString $timeString:00',
-            ); // add seconds
-          } else {
-            dueDate = DateTime.parse(dateString);
-          }
+          tasks.add(currTask);
 
-          print('Parsed DateTime: $dueDate');
+          print('Task: $taskText');
+          print('Due Date: $dueDate');
+        } else {
+          dueDate = DateTime.parse(dateString);
         }
       }
     }
-    return [];
+
+    return tasks;
   }
 
   List<File> getFilesInFolder(String folderPath) {

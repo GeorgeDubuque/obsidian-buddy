@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:external_app_launcher/external_app_launcher.dart';
 import 'package:file_picker/file_picker.dart';
@@ -7,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:obsidian_buddy/constants.dart';
+import 'package:obsidian_buddy/databaseManager.dart';
+import 'package:obsidian_buddy/task.dart';
 import 'package:obsidian_buddy/vault_parser.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +23,7 @@ FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  //initialize and retrieve current timezone
   tz.initializeTimeZones();
   final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
   tz.setLocalLocation(tz.getLocation(currentTimeZone));
@@ -35,6 +39,7 @@ void main() async {
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
+  // ios notification settings and action list
   final DarwinInitializationSettings initializationSettingsDarwin =
       DarwinInitializationSettings(
         requestAlertPermission: true,
@@ -61,6 +66,8 @@ void main() async {
           ),
         ],
       );
+
+  // request ios notifications
   final bool? result = await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin
@@ -71,12 +78,14 @@ void main() async {
     iOS: initializationSettingsDarwin,
   );
 
+  // bind notification callbacks
   await flutterLocalNotificationsPlugin.initialize(
     initializationSettings,
     onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
     onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
   );
 
+  // request storage read and write
   final status = await Permission.manageExternalStorage.request();
   debugPrint(
     'ManageExternalStorage permission ${status.isGranted ? "is" : "isn't"} granted.',
@@ -86,10 +95,16 @@ void main() async {
     debugPrint('we need that permission bruv sowwy :(');
   }
 
+  // have user select vault folder and set the vault path
   String? vaultFolderPath = await getVaultPath();
   vaultFolderPath ??= await pickVaultFolder();
 
   setVaultPath(vaultFolderPath!);
+
+  final dbManager = DatabaseManager(); // DB starts initializing immediately
+
+  // Make sure DB is ready before using
+  final database = await dbManager.db;
 
   runApp(const ObsidianBuddy());
 }
@@ -173,11 +188,56 @@ void _setReminder5SecondsFromNow(String title, String description) async {
   _setReminder(reminderTime, title, description);
 }
 
+void _setReminderForTask(Task task) async {
+  tz.initializeTimeZones();
+  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(currentTimeZone));
+
+  tz.TZDateTime reminderTime = tz.TZDateTime.from(task.reminderDate, tz.local);
+
+  NotificationDetails notificationDetails = const NotificationDetails(
+    android: AndroidNotificationDetails(
+      'reminders', //channel id
+      'Reminders', // channel name
+      channelDescription:
+          'Sending user reminders of their tasks.', // channel desc
+      importance: Importance.max,
+      priority: Priority.high,
+      actions: <AndroidNotificationAction>[actionSnooze5Seconds],
+    ),
+    iOS: DarwinNotificationDetails(
+      categoryIdentifier: 'reminder',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      presentBanner: true,
+      presentList: true,
+    ),
+    //TODO:: add ios
+  );
+
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    task.id,
+    task.task,
+    task.task,
+    reminderTime,
+    notificationDetails,
+    payload: jsonEncode([task.task, task.task, actionSnooze5Seconds.id]),
+    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+  );
+}
+
 void _setReminder(
   tz.TZDateTime dateTime,
   String title,
   String description,
 ) async {
+  tz.initializeTimeZones();
+  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(currentTimeZone));
+
+  tz.TZDateTime reminderTime = tz.TZDateTime.from(dateTime, tz.local);
+
   NotificationDetails notificationDetails = const NotificationDetails(
     android: AndroidNotificationDetails(
       'reminders', //channel id
@@ -338,9 +398,43 @@ class _MyHomePageState extends State<MyHomePage> {
     VaultParser vaultParser = VaultParser(vaultPath);
     vaultParser.vaultPath = vaultPath;
 
+    DatabaseManager databaseManager = DatabaseManager();
+
     List<File> files = vaultParser.getFilesInFolder(vaultPath);
     for (File file in files) {
-      vaultParser.parseTasksFromFile(file);
+      DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
+        file.path,
+      );
+
+      // only look for tasks if the file has been modified or is a new file
+      if (lastReadFileDateTime == null ||
+          file.lastModifiedSync().isAfter(lastReadFileDateTime)) {
+        debugPrint('${file.path} has been updated looking for changes');
+
+        final List<PendingNotificationRequest> pendingNotificationRequests =
+            await flutterLocalNotificationsPlugin.pendingNotificationRequests();
+
+        List<Task> tasks = await vaultParser.parseTasksFromFile(file);
+
+        for (Task task in tasks) {
+          //TODO: is there a more efficient way to get pending notification by id?
+
+          // check if reminder time has changed and cancel and reschedule
+          Task? prevTaskVersion = await databaseManager.getTaskById(task.id);
+          if (prevTaskVersion != null) {
+            if (prevTaskVersion.reminderDate != task.reminderDate) {
+              await flutterLocalNotificationsPlugin.cancel(task.id);
+              _setReminderForTask(task);
+              databaseManager.insertTask(task);
+            }
+          } else {
+            _setReminderForTask(task);
+            databaseManager.insertTask(task);
+          }
+        }
+
+        databaseManager.updateFileLastRead(file.path, DateTime.now());
+      }
     }
   }
 
