@@ -68,13 +68,7 @@ class VaultParser {
     return tasks;
   }
 
-  List<File> getFilesInFolder(String folderPath) async {
-    await SecurityScopedResource.instance.startAccessingSecurityScopedResource(
-      dir,
-    );
-    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
-      dir,
-    );
+  List<File> getFilesInFolder(String folderPath) {
     final vaultDirectory = Directory(folderPath);
     final List<File> files = [];
 
