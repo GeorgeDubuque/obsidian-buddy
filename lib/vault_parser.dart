@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:obsidian_buddy/databaseManager.dart';
 import 'package:obsidian_buddy/task.dart';
+import 'package:security_scoped_resource/security_scoped_resource.dart';
 import 'package:sqflite/sqflite.dart';
 
 class VaultParser {
@@ -67,7 +68,13 @@ class VaultParser {
     return tasks;
   }
 
-  List<File> getFilesInFolder(String folderPath) {
+  List<File> getFilesInFolder(String folderPath) async {
+    await SecurityScopedResource.instance.startAccessingSecurityScopedResource(
+      dir,
+    );
+    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
+      dir,
+    );
     final vaultDirectory = Directory(folderPath);
     final List<File> files = [];
 

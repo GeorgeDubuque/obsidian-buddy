@@ -12,6 +12,7 @@ import 'package:obsidian_buddy/databaseManager.dart';
 import 'package:obsidian_buddy/task.dart';
 import 'package:obsidian_buddy/vault_parser.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:security_scoped_resource/security_scoped_resource.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -319,6 +320,12 @@ class _MyHomePageState extends State<MyHomePage> {
     vaultParser.vaultPath = vaultPath;
     DatabaseManager databaseManager = DatabaseManager();
 
+    FilePicker.platform.getDirectoryPath();
+
+    Directory vaultDirectory = Directory(vaultPath);
+    await SecurityScopedResource.instance.startAccessingSecurityScopedResource(
+      vaultDirectory,
+    );
     List<File> files = vaultParser.getFilesInFolder(vaultPath);
     for (File file in files) {
       DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
@@ -348,6 +355,10 @@ class _MyHomePageState extends State<MyHomePage> {
         await databaseManager.updateFileLastRead(file.path, DateTime.now());
       }
     }
+
+    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
+      vaultDirectory,
+    );
   }
 
   // Example placeholders for Obsidian opening functions
