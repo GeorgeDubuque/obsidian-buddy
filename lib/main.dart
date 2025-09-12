@@ -319,12 +319,13 @@ class _MyHomePageState extends State<MyHomePage> {
     VaultParser vaultParser = VaultParser(vaultPath);
     vaultParser.vaultPath = vaultPath;
     DatabaseManager databaseManager = DatabaseManager();
+    String? selectedPath = await FilePicker.platform.getDirectoryPath();
 
-    Directory vaultDirectory = Directory(vaultPath);
+    Directory vaultDirectory = Directory(selectedPath!);
     bool grantedAccessToVault = await SecurityScopedResource.instance
         .startAccessingSecurityScopedResource(vaultDirectory);
     debugPrint('granted access to ${vaultPath}: $grantedAccessToVault');
-    List<File> files = vaultParser.getFilesInFolder(vaultPath);
+    List<File> files = vaultParser.getFilesInFolder(selectedPath);
     for (File file in files) {
       DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
         file.path,
