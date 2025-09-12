@@ -99,4 +99,15 @@ class DatabaseManager {
 
     return null; // task not found
   }
+
+  Future<List<Task>> getAllTasks() async {
+    final database = await db;
+
+    final results = await database.query(
+      'tasks',
+      orderBy: 'reminder_date ASC', // optional: sort by reminder
+    );
+
+    return results.map((map) => Task.fromMap(map)).toList();
+  }
 }
