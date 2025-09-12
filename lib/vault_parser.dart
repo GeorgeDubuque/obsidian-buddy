@@ -68,23 +68,30 @@ class VaultParser {
   }
 
   List<File> getFilesInFolder(String folderPath) {
-    // TODO: implement vault-wide parsing
-    debugPrint("Parsing files from vault path: $folderPath");
     final vaultDirectory = Directory(folderPath);
+    final List<File> files = [];
 
-    final files = Directory(vaultPath)
-        .listSync(recursive: true)
-        .where(
-          (e) =>
-              e is File &&
-              !e.path.endsWith('.excalidraw.md') &&
-              e.path.endsWith('.md'),
-        )
-        .cast<File>()
-        .toList();
+    void walkDir(Directory dir) {
+      try {
+        final entities = dir.listSync(recursive: false);
+        for (final e in entities) {
+          if (e is File &&
+              e.path.endsWith('.md') &&
+              !e.path.endsWith('.excalidraw.md')) {
+            files.add(e);
+          } else if (e is Directory) {
+            walkDir(e); // recurse manually
+          }
+        }
+      } catch (e) {
+        debugPrint('Cannot access directory ${dir.path}: $e');
+        // ignore this folder, iOS sandbox prevents access
+      }
+    }
 
-    debugPrint("Found ${files.length} files.");
+    walkDir(vaultDirectory);
 
+    debugPrint('Found ${files.length} markdown files.');
     return files;
   }
 
