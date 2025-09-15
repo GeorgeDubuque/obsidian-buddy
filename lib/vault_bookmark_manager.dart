@@ -50,6 +50,7 @@ class VaultBookmarkManager {
       if (selectedPath == null)
         return null; // TODO: user cancelled need to gracefully fail
       vaultPath = selectedPath;
+      await createAndSaveBookmark(vaultPath);
       print("User selected new path: $vaultPath");
     }
 

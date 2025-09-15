@@ -17,6 +17,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:security_scoped_resource/security_scoped_resource.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/standalone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -55,28 +56,28 @@ void main() async {
             'reminder',
             actions: <DarwinNotificationAction>[
               DarwinNotificationAction.plain(
-                'snooze-5-seconds',
+                snooze5SecondsId,
                 'Snooze 5 Seconds',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.foreground,
                 },
               ),
               DarwinNotificationAction.plain(
-                'snooze-5-minutes',
+                snooze5MinutesId,
                 'Snooze 5 Minutes',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.foreground,
                 },
               ),
               DarwinNotificationAction.plain(
-                'snooze-1-hour',
+                snooze1HourId,
                 'Snooze 1 Hour',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.foreground,
                 },
               ),
               DarwinNotificationAction.plain(
-                'snooze-1-day',
+                snooze1DayId,
                 'Snooze 1 Day',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.foreground,
@@ -166,15 +167,48 @@ Future<void> selectVault() async {
 void notificationTapBackground(
   NotificationResponse notificationResponse,
 ) async {
-  debugPrint('action id: ${notificationResponse.actionId}');
-  if (notificationResponse.actionId == actionSnooze5Seconds.id) {
-    if (notificationResponse.payload != null) {
-      final List<dynamic> notificationDetailsDecoded =
-          jsonDecode(notificationResponse.payload!) as List<dynamic>;
-      _setReminder5SecondsFromNow(
-        notificationDetailsDecoded[0],
-        notificationDetailsDecoded[1],
-      );
+  final String? payload = notificationResponse.payload;
+  debugPrint('notification id: ${notificationResponse.id}');
+  debugPrint('notification action id: ${notificationResponse.actionId}');
+
+  tz.initializeTimeZones();
+  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(currentTimeZone));
+
+  tz.TZDateTime reminderTime = tz.TZDateTime.now(tz.local);
+
+  if (notificationResponse.payload != null) {
+    debugPrint('notification payload: ${notificationResponse.data.length}');
+
+    final List<dynamic> notificationDetailsDecoded =
+        jsonDecode(notificationResponse.payload!) as List<dynamic>;
+    int taskId = notificationDetailsDecoded[0];
+    int taskContent = notificationDetailsDecoded[1];
+
+    final DatabaseManager dbManager = DatabaseManager();
+    Task? task = await dbManager.getTaskById(taskId);
+
+    if (task != null) {
+      switch (notificationResponse.actionId) {
+        case snooze5SecondsId:
+          reminderTime.add(Duration(seconds: 5));
+          _setReminderForTask(task, reminderTime);
+        case snooze5MinutesId:
+          reminderTime.add(Duration(minutes: 5));
+          _setReminderForTask(task, reminderTime);
+        case snooze1HourId:
+          reminderTime.add(Duration(hours: 1));
+          _setReminderForTask(task, reminderTime);
+        case snooze1DayId:
+          reminderTime.add(Duration(days: 1));
+          _setReminderForTask(task, reminderTime);
+        case snooze1WeekId:
+          reminderTime.add(Duration(days: 7));
+          _setReminderForTask(task, reminderTime);
+        default:
+          reminderTime.add(Duration(minutes: 1));
+          _setReminderForTask(task, reminderTime);
+      }
     }
   }
 }
@@ -186,101 +220,54 @@ void onDidReceiveNotificationResponse(
   debugPrint('notification id: ${notificationResponse.id}');
   debugPrint('notification action id: ${notificationResponse.actionId}');
 
-  if (notificationResponse.actionId == snooze5SecondsId &&
-      notificationResponse.payload != null) {
-    final List<dynamic> notificationDetailsDecoded =
-        jsonDecode(notificationResponse.payload!) as List<dynamic>;
-    _setReminder5SecondsFromNow(
-      notificationDetailsDecoded[0],
-      notificationDetailsDecoded[1],
-    );
-  } else if (notificationResponse.actionId == 'snooze-5-minutes' &&
-      notificationResponse.payload != null) {
-    final List<dynamic> notificationDetailsDecoded =
-        jsonDecode(notificationResponse.payload!) as List<dynamic>;
-    _setReminder5MinutesFromNow(
-      notificationDetailsDecoded[0],
-      notificationDetailsDecoded[1],
-    );
-  } else if (notificationResponse.actionId == 'snooze-1-hour' &&
-      notificationResponse.payload != null) {
-    final List<dynamic> notificationDetailsDecoded =
-        jsonDecode(notificationResponse.payload!) as List<dynamic>;
-    _setReminder1HourFromNow(
-      notificationDetailsDecoded[0],
-      notificationDetailsDecoded[1],
-    );
-  } else if (notificationResponse.actionId == 'snooze-1-day' &&
-      notificationResponse.payload != null) {
-    final List<dynamic> notificationDetailsDecoded =
-        jsonDecode(notificationResponse.payload!) as List<dynamic>;
-    _setReminder1DayFromNow(
-      notificationDetailsDecoded[0],
-      notificationDetailsDecoded[1],
-    );
-  } else {
-    debugPrint("didnt recognize action id");
-  }
+  tz.initializeTimeZones();
+  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(currentTimeZone));
+
+  tz.TZDateTime reminderTime = tz.TZDateTime.now(tz.local);
 
   if (notificationResponse.payload != null) {
     debugPrint('notification payload: ${notificationResponse.data.length}');
+
+    final List<dynamic> notificationDetailsDecoded =
+        jsonDecode(notificationResponse.payload!) as List<dynamic>;
+    int taskId = notificationDetailsDecoded[0];
+    int taskContent = notificationDetailsDecoded[1];
+
+    final DatabaseManager dbManager = DatabaseManager();
+    Task? task = await dbManager.getTaskById(taskId);
+
+    if (task != null) {
+      switch (notificationResponse.actionId) {
+        case snooze5SecondsId:
+          reminderTime.add(Duration(seconds: 5));
+          _setReminderForTask(task, reminderTime);
+        case snooze5MinutesId:
+          reminderTime.add(Duration(minutes: 5));
+          _setReminderForTask(task, reminderTime);
+        case snooze1HourId:
+          reminderTime.add(Duration(hours: 1));
+          _setReminderForTask(task, reminderTime);
+        case snooze1DayId:
+          reminderTime.add(Duration(days: 1));
+          _setReminderForTask(task, reminderTime);
+        case snooze1WeekId:
+          reminderTime.add(Duration(days: 7));
+          _setReminderForTask(task, reminderTime);
+        default:
+          reminderTime.add(Duration(minutes: 1));
+          _setReminderForTask(task, reminderTime);
+      }
+    }
   }
 }
 
-void _setReminder1DayFromNow(String title, String description) async {
+void _setReminderForTask(Task task, [TZDateTime? reminderTime]) async {
   tz.initializeTimeZones();
   final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
   tz.setLocalLocation(tz.getLocation(currentTimeZone));
 
-  tz.TZDateTime reminderTime = tz.TZDateTime.now(
-    tz.local,
-  ).add(const Duration(days: 1));
-
-  _setReminder(reminderTime, title, description);
-}
-
-void _setReminder1HourFromNow(String title, String description) async {
-  tz.initializeTimeZones();
-  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-  tz.TZDateTime reminderTime = tz.TZDateTime.now(
-    tz.local,
-  ).add(const Duration(hours: 1));
-
-  _setReminder(reminderTime, title, description);
-}
-
-void _setReminder5MinutesFromNow(String title, String description) async {
-  tz.initializeTimeZones();
-  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-  tz.TZDateTime reminderTime = tz.TZDateTime.now(
-    tz.local,
-  ).add(const Duration(minutes: 5));
-
-  _setReminder(reminderTime, title, description);
-}
-
-void _setReminder5SecondsFromNow(String title, String description) async {
-  tz.initializeTimeZones();
-  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-  tz.TZDateTime reminderTime = tz.TZDateTime.now(
-    tz.local,
-  ).add(const Duration(seconds: 5));
-
-  _setReminder(reminderTime, title, description);
-}
-
-void _setReminderForTask(Task task) async {
-  tz.initializeTimeZones();
-  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-  tz.TZDateTime reminderTime = tz.TZDateTime.from(task.reminderDate, tz.local);
+  reminderTime ??= tz.TZDateTime.from(task.reminderDate, tz.local);
 
   NotificationDetails notificationDetails = const NotificationDetails(
     android: AndroidNotificationDetails(
@@ -308,45 +295,6 @@ void _setReminderForTask(Task task) async {
     reminderTime,
     notificationDetails,
     payload: jsonEncode([task.task, task.task, actionSnooze5Seconds.id]),
-    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-  );
-}
-
-void _setReminder(
-  tz.TZDateTime dateTime,
-  String title,
-  String description,
-) async {
-  tz.initializeTimeZones();
-  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-  NotificationDetails notificationDetails = const NotificationDetails(
-    android: AndroidNotificationDetails(
-      'reminders',
-      'Reminders',
-      channelDescription: 'Sending user reminders of their tasks.',
-      importance: Importance.max,
-      priority: Priority.high,
-      actions: <AndroidNotificationAction>[actionSnooze5Seconds],
-    ),
-    iOS: DarwinNotificationDetails(
-      categoryIdentifier: 'reminder',
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      presentBanner: true,
-      presentList: true,
-    ),
-  );
-
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    0,
-    title,
-    description,
-    dateTime,
-    notificationDetails,
-    payload: jsonEncode([title, description, actionSnooze5Seconds.id]),
     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
   );
 }
@@ -389,11 +337,6 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       tasksFuture = dbManager.getAllTasks();
     });
-  }
-
-  Future<void> _readVaultFilesAndReload() async {
-    await _readVaultFilesWithBookmarks();
-    _loadTasks();
   }
 
   Future<void> _readVaultFilesWithBookmarks() async {
