@@ -3,78 +3,66 @@ import Flutter
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
-    private var activeURLs: [String: URL] = [:]
-    private var pickResult: FlutterResult?
+  override func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> Bool {
+    GeneratedPluginRegistrant.register(with: self)
+    let controller: FlutterViewController = window?.rootViewController as! FlutterViewController
+    let channel = FlutterMethodChannel(name: "security_scoped_bookmarks", binaryMessenger: controller.binaryMessenger)
 
-    override func application(
-        _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-    ) -> Bool {
-        GeneratedPluginRegistrant.register(with: self)
-        let controller: FlutterViewController = window?.rootViewController as! FlutterViewController
-        let channel = FlutterMethodChannel(name: "bookmarks", binaryMessenger: controller.binaryMessenger)
-
-        channel.setMethodCallHandler { [weak self] call, result in
-            guard let self = self else { return }
-
-            switch call.method {
-            case "createBookmark":
-                if let args = call.arguments as? [String: Any],
-                   let path = args["path"] as? String {
-                    self.createBookmark(path: path, result: result)
-                } else {
-                    result(FlutterError(code: "bad_args", message: "path missing", details: nil))
-                }
-            case "resolveBookmark":
-                if let args = call.arguments as? [String: Any],
-                   let bookmark = args["bookmark"] as? String {
-                    self.resolveBookmark(bookmarkB64: bookmark, result: result)
-                } else {
-                    result(FlutterError(code: "bad_args", message: "bookmark missing", details: nil))
-                }
-            default:
-                result(FlutterMethodNotImplemented)
-            }
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "createBookmark":
+        guard let args = call.arguments as? [String: Any],
+              let path = args["path"] as? String else {
+          result(FlutterError(code: "bad_args", message: "path missing", details: nil))
+          return
         }
+        self.createBookmark(path: path, result: result)
 
-        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+      case "resolveBookmark":
+        guard let args = call.arguments as? [String: Any],
+              let bookmarkB64 = args["bookmark"] as? String else {
+          result(FlutterError(code: "bad_args", message: "bookmark missing", details: nil))
+          return
+        }
+        self.resolveBookmark(bookmarkB64: bookmarkB64, result: result)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
     }
 
-    // MARK: - Bookmark creation
-    private func createBookmark(path: String, result: @escaping FlutterResult) {
-        let url = URL(fileURLWithPath: path)
-        do {
-            let bookmarkData = try url.bookmarkData(options: .minimalBookmark,
-                                                    includingResourceValuesForKeys: nil,
-                                                    relativeTo: nil)
-            let b64 = bookmarkData.base64EncodedString()
-            result(b64)
-        } catch {
-            result(FlutterError(code: "bookmark_failed", message: "Failed to create bookmark: \(error)", details: nil))
-        }
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private func createBookmark(path: String, result: FlutterResult) {
+    let url = URL(fileURLWithPath: path)
+    do {
+      let data = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+      let b64 = data.base64EncodedString()
+      result(b64)
+    } catch {
+      result(FlutterError(code: "bookmark_failed", message: "\(error)", details: nil))
     }
+  }
 
-    // MARK: - Bookmark resolution
-    private func resolveBookmark(bookmarkB64: String, result: @escaping FlutterResult) {
-        guard let data = Data(base64Encoded: bookmarkB64) else {
-            result(FlutterError(code: "bad_bookmark", message: "Cannot decode base64", details: nil))
-            return
-        }
-
-        var isStale = false
-        do {
-            let url = try URL(resolvingBookmarkData: data,
-                              bookmarkDataIsStale: &isStale)
-
-            if isStale {
-                result(FlutterError(code: "stale_bookmark", message: "Bookmark is stale", details: nil))
-                return
-            }
-
-            activeURLs[bookmarkB64] = url
-            result(url.path)
-        } catch {
-            result(FlutterError(code: "resolve_failed", message: "Failed to resolve bookmark: \(error)", details: nil))
-        }
+  private func resolveBookmark(bookmarkB64: String, result: FlutterResult) {
+    guard let data = Data(base64Encoded: bookmarkB64) else {
+      result(FlutterError(code: "bad_bookmark", message: "Cannot decode base64", details: nil))
+      return
     }
+    do {
+      var isStale = false
+      let url = try URL(resolvingBookmarkData: data, bookmarkDataIsStale: &isStale)
+      if isStale {
+        result(FlutterError(code: "stale_bookmark", message: "Bookmark is stale", details: nil))
+        return
+      }
+      result(url.path)
+    } catch {
+      result(FlutterError(code: "resolve_failed", message: "\(error)", details: nil))
+    }
+  }
 }
