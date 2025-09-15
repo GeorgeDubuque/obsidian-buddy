@@ -11,7 +11,6 @@ class VaultBookmarkManager {
     final String bookmark = await _channel.invokeMethod('createBookmark', {
       'path': path,
     });
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('vault_bookmark', bookmark);
     return bookmark;
@@ -29,5 +28,37 @@ class VaultBookmarkManager {
       'bookmark': bookmark,
     });
     return path;
+  }
+
+  /// Start accessing a security-scoped resource
+  static Future<bool> startAccessingSecurityScopedResource(String path) async {
+    try {
+      final bool granted = await _channel.invokeMethod('startAccessing', {
+        'path': path,
+      });
+      return granted;
+    } catch (e) {
+      print('Error starting security scoped access: $e');
+      return false;
+    }
+  }
+
+  /// Stop accessing a security-scoped resource
+  static Future<bool> stopAccessingSecurityScopedResource(String path) async {
+    try {
+      final bool stopped = await _channel.invokeMethod('stopAccessing', {
+        'path': path,
+      });
+      return stopped;
+    } catch (e) {
+      print('Error stopping security scoped access: $e');
+      return false;
+    }
+  }
+
+  /// Clear the saved bookmark
+  static Future<void> clearBookmark() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('vault_bookmark');
   }
 }

@@ -317,80 +317,112 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _readVaultFilesWithBookmarks() async {
     final dbManager = DatabaseManager();
     final vaultParser = VaultParser('');
-
     late String vaultPath;
+    bool needsNewBookmark = false;
+
+    print("=== Starting _readVaultFilesWithBookmarks ===");
+
     String? bookmark = await VaultBookmarkManager.getSavedBookmark();
+    print("Bookmark exists: ${bookmark != null}");
 
     if (bookmark != null) {
       try {
         // Try to resolve saved bookmark
         vaultPath = await VaultBookmarkManager.resolveBookmark(bookmark);
+        print("Successfully resolved bookmark to: $vaultPath");
       } catch (e) {
-        debugPrint("Failed to resolve saved bookmark: $e");
-        bookmark = null;
+        print("Failed to resolve saved bookmark: $e");
+        needsNewBookmark = true;
       }
+    } else {
+      needsNewBookmark = true;
     }
 
-    if (bookmark == null) {
+    if (needsNewBookmark) {
       // User must pick the vault folder
       String? selectedPath = await FilePicker.platform.getDirectoryPath();
       if (selectedPath == null) return; // user cancelled
       vaultPath = selectedPath;
-
-      try {
-        // Save a bookmark for future access
-        await VaultBookmarkManager.createAndSaveBookmark(vaultPath);
-      } catch (e) {
-        debugPrint("Failed to create bookmark: $e");
-      }
+      print("User selected new path: $vaultPath");
     }
 
     final vaultDirectory = Directory(vaultPath);
+    print("Directory exists: ${await vaultDirectory.exists()}");
 
-    // Access the security-scoped resource
-    bool granted = await SecurityScopedResource.instance
-        .startAccessingSecurityScopedResource(vaultDirectory);
+    // Use our native method instead of the plugin
+    bool granted =
+        await VaultBookmarkManager.startAccessingSecurityScopedResource(
+          vaultPath,
+        );
+
     if (!granted) {
-      debugPrint("Cannot access vault directory: $vaultPath");
-      return;
-    }
-
-    debugPrint("Granted access to $vaultPath");
-
-    // Enumerate markdown files
-    List<File> files = vaultParser.getFilesInFolder(vaultPath);
-    debugPrint("Found ${files.length} markdown files.");
-
-    for (File file in files) {
-      DateTime? lastRead = await dbManager.getFileLastRead(file.path);
-      if (lastRead == null || file.lastModifiedSync().isAfter(lastRead)) {
-        debugPrint('${file.path} has changed, parsing tasks');
-        final tasks = await vaultParser.parseTasksFromFile(file);
-
-        for (final task in tasks) {
-          Task? prev = await dbManager.getTaskById(task.id);
-          if (prev != null) {
-            if (prev.reminderDate != task.reminderDate) {
-              await flutterLocalNotificationsPlugin.cancel(task.id);
-              _setReminderForTask(task);
-              dbManager.insertTask(task);
-            }
-          } else {
-            _setReminderForTask(task);
-            dbManager.insertTask(task);
-          }
+      print("Cannot access vault directory: $vaultPath");
+      // If we couldn't access with the resolved path, try getting a fresh selection
+      if (!needsNewBookmark) {
+        print("Trying to get fresh directory selection...");
+        String? newPath = await FilePicker.platform.getDirectoryPath();
+        if (newPath != null) {
+          vaultPath = newPath;
+          granted =
+              await VaultBookmarkManager.startAccessingSecurityScopedResource(
+                vaultPath,
+              );
+          needsNewBookmark = true;
         }
+      }
 
-        await dbManager.updateFileLastRead(file.path, DateTime.now());
+      if (!granted) {
+        print("Still cannot access vault directory after retry");
+        return;
       }
     }
 
-    // Stop accessing resource when done
-    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
-      vaultDirectory,
-    );
+    try {
+      print("Granted access to $vaultPath");
 
-    debugPrint("Finished processing vault files.");
+      // Create/update bookmark for future use
+      if (needsNewBookmark) {
+        try {
+          await VaultBookmarkManager.createAndSaveBookmark(vaultPath);
+          print("Created new bookmark successfully");
+        } catch (e) {
+          print("Failed to create bookmark: $e");
+        }
+      }
+
+      // Enumerate markdown files
+      List<File> files = vaultParser.getFilesInFolder(vaultPath);
+      print("Found ${files.length} markdown files.");
+
+      for (File file in files) {
+        DateTime? lastRead = await dbManager.getFileLastRead(file.path);
+        if (lastRead == null || file.lastModifiedSync().isAfter(lastRead)) {
+          print('${file.path} has changed, parsing tasks');
+
+          final tasks = await vaultParser.parseTasksFromFile(file);
+          for (final task in tasks) {
+            Task? prev = await dbManager.getTaskById(task.id);
+            if (prev != null) {
+              if (prev.reminderDate != task.reminderDate) {
+                await flutterLocalNotificationsPlugin.cancel(task.id);
+                _setReminderForTask(task);
+                dbManager.insertTask(task);
+              }
+            } else {
+              _setReminderForTask(task);
+              dbManager.insertTask(task);
+            }
+          }
+          await dbManager.updateFileLastRead(file.path, DateTime.now());
+        }
+      }
+    } finally {
+      // Always stop accessing resource when done
+      await VaultBookmarkManager.stopAccessingSecurityScopedResource(vaultPath);
+      print("Stopped accessing security-scoped resource");
+    }
+
+    print("Finished processing vault files.");
   }
 
   Future<void> _readVaultFilesTestAgain() async {
