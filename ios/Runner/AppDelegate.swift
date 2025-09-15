@@ -55,9 +55,9 @@ import Flutter
   private func createBookmark(path: String, result: FlutterResult) {
     let url = URL(fileURLWithPath: path)
     do {
-      // Use .withSecurityScope instead of .minimalBookmark for user-selected directories
+      // For bookmark creation, use default options (security scope is preserved automatically for user-selected URLs)
       let data = try url.bookmarkData(
-        options: .withSecurityScope,
+        options: [],
         includingResourceValuesForKeys: nil,
         relativeTo: nil
       )
@@ -81,7 +81,7 @@ import Flutter
       // On iOS, use empty options - security scope is handled automatically
       let url = try URL(
         resolvingBookmarkData: data,
-        options: [],  // withSecurityScope is macOS only
+        options: [],  // iOS doesn't have withSecurityScope - use empty options
         relativeTo: nil,
         bookmarkDataIsStale: &isStale
       )
