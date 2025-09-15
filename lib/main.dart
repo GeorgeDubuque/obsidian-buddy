@@ -400,20 +400,33 @@ class _MyHomePageState extends State<MyHomePage> {
           print('${file.path} has changed, parsing tasks');
 
           final tasks = await vaultParser.parseTasksFromFile(file);
+          print("Found ${tasks.length} tasks in ${file.path}");
+
           for (final task in tasks) {
-            Task? prev = await dbManager.getTaskById(task.id);
-            if (prev != null) {
-              if (prev.reminderDate != task.reminderDate) {
+            print("Processing task: ${task.task} (ID: ${task.id})");
+
+            Task? existingTask = await dbManager.getTaskById(task.id);
+            if (existingTask != null) {
+              print("Task already exists, checking if update needed");
+              if (existingTask.reminderDate != task.reminderDate) {
+                print("Reminder date changed, updating task and notification");
                 await flutterLocalNotificationsPlugin.cancel(task.id);
                 _setReminderForTask(task);
-                dbManager.insertTask(task);
+                await dbManager.updateTask(
+                  task,
+                ); // Use updateTask instead of insertTask
+              } else {
+                print("Task unchanged, skipping");
               }
             } else {
+              print("New task, inserting into database");
               _setReminderForTask(task);
-              dbManager.insertTask(task);
+              await dbManager.insertTask(task); // Add await
             }
           }
           await dbManager.updateFileLastRead(file.path, DateTime.now());
+        } else {
+          print("File ${file.path} hasn't changed since last read");
         }
       }
     } finally {
@@ -423,130 +436,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     print("Finished processing vault files.");
-  }
-
-  Future<void> _readVaultFilesTestAgain() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? bookmark = prefs.getString('vault_bookmark');
-
-    late String vaultPath;
-    if (bookmark != null) {
-      // Resolve saved bookmark
-      try {
-        vaultPath = await Bookmarks.resolveBookmark(bookmark);
-      } catch (e) {
-        debugPrint('Failed to resolve bookmark, picking folder: $e');
-        bookmark = null;
-      }
-    }
-
-    if (bookmark == null) {
-      // Pick folder and create bookmark
-      String? selectedPath = await FilePicker.platform.getDirectoryPath();
-      if (selectedPath == null) return;
-
-      vaultPath = selectedPath;
-
-      try {
-        bookmark = await Bookmarks.createBookmark(vaultPath);
-        await prefs.setString('vault_bookmark', bookmark);
-      } catch (e) {
-        debugPrint('Failed to create bookmark: $e');
-        return;
-      }
-    }
-
-    final vaultDir = Directory(vaultPath);
-    final grantedAccessToVault = await SecurityScopedResource.instance
-        .startAccessingSecurityScopedResource(vaultDir);
-
-    debugPrint('Granted access to $vaultPath: $grantedAccessToVault');
-
-    // Your existing parsing logic
-    VaultParser vaultParser = VaultParser(vaultPath);
-    DatabaseManager databaseManager = DatabaseManager();
-    List<File> files = vaultParser.getFilesInFolder(vaultPath);
-
-    for (File file in files) {
-      DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
-        file.path,
-      );
-
-      if (lastReadFileDateTime == null ||
-          file.lastModifiedSync().isAfter(lastReadFileDateTime)) {
-        debugPrint('${file.path} has been updated, parsing tasks');
-
-        List<Task> tasks = await vaultParser.parseTasksFromFile(file);
-
-        for (Task task in tasks) {
-          Task? prevTaskVersion = await databaseManager.getTaskById(task.id);
-          if (prevTaskVersion != null) {
-            if (prevTaskVersion.reminderDate != task.reminderDate) {
-              await flutterLocalNotificationsPlugin.cancel(task.id);
-              _setReminderForTask(task);
-              databaseManager.insertTask(task);
-            }
-          } else {
-            _setReminderForTask(task);
-            databaseManager.insertTask(task);
-          }
-        }
-
-        await databaseManager.updateFileLastRead(file.path, DateTime.now());
-      }
-    }
-
-    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
-      vaultDir,
-    );
-  }
-
-  Future<void> _readVaultFilesTest() async {
-    String? vaultPath = await getVaultPath();
-    if (vaultPath == null) return;
-
-    VaultParser vaultParser = VaultParser(vaultPath);
-    vaultParser.vaultPath = vaultPath;
-    DatabaseManager databaseManager = DatabaseManager();
-    String? selectedPath = await FilePicker.platform.getDirectoryPath();
-
-    Directory vaultDirectory = Directory(selectedPath!);
-    bool grantedAccessToVault = await SecurityScopedResource.instance
-        .startAccessingSecurityScopedResource(vaultDirectory);
-    debugPrint('granted access to ${vaultPath}: $grantedAccessToVault');
-    List<File> files = vaultParser.getFilesInFolder(selectedPath);
-    for (File file in files) {
-      DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
-        file.path,
-      );
-
-      if (lastReadFileDateTime == null ||
-          file.lastModifiedSync().isAfter(lastReadFileDateTime)) {
-        debugPrint('${file.path} has been updated, parsing tasks');
-
-        List<Task> tasks = await vaultParser.parseTasksFromFile(file);
-
-        for (Task task in tasks) {
-          Task? prevTaskVersion = await databaseManager.getTaskById(task.id);
-          if (prevTaskVersion != null) {
-            if (prevTaskVersion.reminderDate != task.reminderDate) {
-              await flutterLocalNotificationsPlugin.cancel(task.id);
-              _setReminderForTask(task);
-              databaseManager.insertTask(task);
-            }
-          } else {
-            _setReminderForTask(task);
-            databaseManager.insertTask(task);
-          }
-        }
-
-        await databaseManager.updateFileLastRead(file.path, DateTime.now());
-      }
-    }
-
-    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
-      vaultDirectory,
-    );
   }
 
   // Example placeholders for Obsidian opening functions
