@@ -318,7 +318,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final dbManager = DatabaseManager();
     final vaultParser = VaultParser('');
 
-    String vaultPath;
+    late String vaultPath;
     String? bookmark = await VaultBookmarkManager.getSavedBookmark();
 
     if (bookmark != null) {
