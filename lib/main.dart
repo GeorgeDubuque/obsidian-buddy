@@ -357,56 +357,75 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     try {
-      print("Granted access to $vaultPath");
+      debugPrint("Granted access to $vaultPath");
 
       // Create/update bookmark for future use
       if (needsNewBookmark) {
         try {
           await VaultBookmarkManager.createAndSaveBookmark(vaultPath);
-          print("Created new bookmark successfully");
+          debugPrint("Created new bookmark successfully");
         } catch (e) {
-          print("Failed to create bookmark: $e");
+          debugPrint("Failed to create bookmark: $e");
         }
       }
 
       // Enumerate markdown files
       List<File> files = vaultParser.getFilesInFolder(vaultPath);
-      print("Found ${files.length} markdown files.");
+      debugPrint("Found ${files.length} markdown files.");
 
       for (File file in files) {
         DateTime? lastRead = await dbManager.getFileLastRead(file.path);
         if (lastRead == null || file.lastModifiedSync().isAfter(lastRead)) {
-          print('${file.path} has changed, parsing tasks');
+          debugPrint('${file.path} has changed, parsing tasks');
 
-          final tasks = await vaultParser.parseTasksFromFile(file);
-          print("Found ${tasks.length} tasks in ${file.path}");
+          final currTasksInFile = await vaultParser.parseTasksFromFile(file);
+          final currTasksInDb = await dbManager.getTasksByPath(file.path);
+          debugPrint("Found ${currTasksInFile.length} tasks in ${file.path}");
 
-          for (final task in tasks) {
-            print("Processing task: ${task.task} (ID: ${task.id})");
+          for (Task dbTask in currTasksInDb) {
+            debugPrint("Processing task: ${dbTask.task} (ID: ${dbTask.id})");
 
-            Task? existingTask = await dbManager.getTaskById(task.id);
-            if (existingTask != null) {
-              print("Task already exists in database");
-              if (existingTask.reminderDate != task.reminderDate) {
-                print("Reminder date changed, updating task and notification");
-                await flutterLocalNotificationsPlugin.cancel(task.id);
-                _setReminderForTask(task);
-                await dbManager.updateTask(task);
+            Task? existingTaskInFile = await currTasksInFile[dbTask.id];
+            if (existingTaskInFile != null) {
+              debugPrint("Task already exists in database");
+              if (existingTaskInFile.reminderDate != dbTask.reminderDate) {
+                debugPrint(
+                  "Reminder date changed, updating task and notification",
+                );
+                await flutterLocalNotificationsPlugin.cancel(dbTask.id);
+                _setReminderForTask(dbTask);
+                await dbManager.updateTask(dbTask);
               } else {
-                print("Task unchanged, skipping");
+                debugPrint("Task unchanged, skipping");
               }
             } else {
-              print("New task, inserting into database");
-              _setReminderForTask(task);
-              await dbManager.insertTask(task);
+              // task no longer exists in file remove it from db and cancel reminder
+
+              debugPrint(
+                "Task removed from file. Removing from db and cancelling.",
+              );
+              await flutterLocalNotificationsPlugin.cancel(dbTask.id);
+              dbManager.deleteTaskById(dbTask.id);
             }
-            _loadTasks();
+
+            // done processing existing task remove it from task list
+            currTasksInFile.remove(dbTask.id);
           }
+
+          // need to loop through new tasks in file
+          currTasksInFile.forEach((taskId, taskInFile) async {
+            debugPrint(
+              "Found new task ${taskInFile.reminderDate} setting reminder for ${taskInFile.reminderDate}",
+            );
+            await dbManager.insertTask(taskInFile);
+            _setReminderForTask(taskInFile);
+          });
           await dbManager.updateFileLastRead(file.path, DateTime.now());
         } else {
           //print("File ${file.path} hasn't changed since last read");
         }
       }
+      _loadTasks();
     } finally {
       // Always stop accessing resource when done
       await VaultBookmarkManager.stopAccessingSecurityScopedResource(vaultPath);

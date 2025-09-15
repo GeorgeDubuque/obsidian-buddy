@@ -22,9 +22,9 @@ class VaultParser {
   }
 
   // Public methods
-  Future<List<Task>> parseTasksFromFile(File file) async {
+  Future<Map<int, Task>> parseTasksFromFile(File file) async {
     List<String> lines = await file.readAsLines();
-    List<Task> tasks = [];
+    Map<int, Task> tasks = {};
 
     // Regex breakdown:
     // ^- \[ \]      : matches the start of a task "- [ ]"
@@ -35,8 +35,6 @@ class VaultParser {
     final taskRegex = RegExp(
       r'^- \[ \]\s*(.*?)\s*⏳\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?',
     );
-
-    final dbManager = DatabaseManager();
 
     for (var line in lines) {
       final match = taskRegex.firstMatch(line);
@@ -55,7 +53,7 @@ class VaultParser {
             reminderDate: dueDate,
           );
 
-          tasks.add(currTask);
+          tasks[currTask.id] = currTask;
 
           print('Task: $taskText');
           print('Due Date: $dueDate');

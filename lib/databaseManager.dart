@@ -139,6 +139,22 @@ class DatabaseManager {
     return results.map((map) => Task.fromMap(map)).toList();
   }
 
+  Future<int> deleteTaskById(int id) async {
+    final database = await db;
+    return await database.delete('tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Task>> getTasksByPath(String filePath) async {
+    final database = await db;
+    final results = await database.query(
+      'tasks',
+      where: 'file_path = ?',
+      whereArgs: [filePath],
+      orderBy: 'reminder_date ASC',
+    );
+    return results.map((map) => Task.fromMap(map)).toList();
+  }
+
   // Helper method to clean up and debug
   Future<void> debugDatabase() async {
     final database = await db;
