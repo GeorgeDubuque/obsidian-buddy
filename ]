@@ -210,16 +210,6 @@ void onDidReceiveNotificationResponse(
       notificationDetailsDecoded[0],
       notificationDetailsDecoded[1],
     );
-  } else if (notificationResponse.actionId == 'snooze-1-day' &&
-      notificationResponse.payload != null) {
-    final List<dynamic> notificationDetailsDecoded =
-        jsonDecode(notificationResponse.payload!) as List<dynamic>;
-    _setReminder1DayFromNow(
-      notificationDetailsDecoded[0],
-      notificationDetailsDecoded[1],
-    );
-  } else {
-    debugPrint("didnt recognize action id");
   }
 
   if (notificationResponse.payload != null) {
