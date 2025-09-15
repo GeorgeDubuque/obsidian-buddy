@@ -78,9 +78,10 @@ import Flutter
     
     do {
       var isStale = false
+      // On iOS, use empty options - security scope is handled automatically
       let url = try URL(
         resolvingBookmarkData: data,
-        options: .withSecurityScope,  // This is the correct usage - withSecurityScope is for resolution
+        options: [],  // withSecurityScope is macOS only
         relativeTo: nil,
         bookmarkDataIsStale: &isStale
       )
