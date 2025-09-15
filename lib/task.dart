@@ -48,5 +48,7 @@ class Task {
           : null,
       reminderDate: DateTime.parse(map['reminder_date']),
     );
+    // Note: The ID will be recalculated automatically in the constructor
+    // This should match the stored ID if the task and filePath are the same
   }
 }

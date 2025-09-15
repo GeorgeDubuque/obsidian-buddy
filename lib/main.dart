@@ -407,21 +407,19 @@ class _MyHomePageState extends State<MyHomePage> {
 
             Task? existingTask = await dbManager.getTaskById(task.id);
             if (existingTask != null) {
-              print("Task already exists, checking if update needed");
+              print("Task already exists in database");
               if (existingTask.reminderDate != task.reminderDate) {
                 print("Reminder date changed, updating task and notification");
                 await flutterLocalNotificationsPlugin.cancel(task.id);
                 _setReminderForTask(task);
-                await dbManager.updateTask(
-                  task,
-                ); // Use updateTask instead of insertTask
+                await dbManager.updateTask(task);
               } else {
                 print("Task unchanged, skipping");
               }
             } else {
               print("New task, inserting into database");
               _setReminderForTask(task);
-              await dbManager.insertTask(task); // Add await
+              await dbManager.insertTask(task);
             }
           }
           await dbManager.updateFileLastRead(file.path, DateTime.now());
