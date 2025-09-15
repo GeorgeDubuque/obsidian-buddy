@@ -80,7 +80,7 @@ import Flutter
       var isStale = false
       let url = try URL(
         resolvingBookmarkData: data,
-        options: .withSecurityScope,  // Important: use .withSecurityScope here too
+        options: .withSecurityScope,  // This is the correct usage - withSecurityScope is for resolution
         relativeTo: nil,
         bookmarkDataIsStale: &isStale
       )
