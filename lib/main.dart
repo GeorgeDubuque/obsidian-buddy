@@ -314,6 +314,74 @@ class _MyHomePageState extends State<MyHomePage> {
     _loadTasks();
   }
 
+  Future<void> _readVaultFilesTestAgainAgainAgain() async {
+    final dbManager = DatabaseManager();
+    final vaultParser = VaultParser('');
+
+    // 1️⃣ Try to get saved bookmark
+    String? bookmark = await VaultBookmarkManager.getSavedBookmark();
+    String vaultPath;
+
+    if (bookmark != null) {
+      // 2️⃣ Resolve bookmark
+      vaultPath = await VaultBookmarkManager.resolveBookmark(bookmark);
+    } else {
+      // 3️⃣ User picks vault folder
+      String? selectedPath = await FilePicker.platform.getDirectoryPath();
+      if (selectedPath == null) return; // user cancelled
+      vaultPath = selectedPath;
+
+      // 4️⃣ Save a bookmark for future access
+      await VaultBookmarkManager.createAndSaveBookmark(vaultPath);
+    }
+
+    vaultParser.vaultPath = vaultPath;
+    final Directory vaultDirectory = Directory(vaultPath);
+
+    // 5️⃣ Start accessing security scoped resource (you already have this)
+    bool granted = await SecurityScopedResource.instance
+        .startAccessingSecurityScopedResource(vaultDirectory);
+    if (!granted) {
+      debugPrint("Cannot access vault directory: $vaultPath");
+      return;
+    }
+
+    debugPrint("Granted access to $vaultPath");
+
+    // 6️⃣ Enumerate files recursively
+    final List<File> files = vaultParser.getFilesInFolder(vaultPath);
+    debugPrint("Found ${files.length} markdown files.");
+
+    for (File file in files) {
+      DateTime? lastRead = await dbManager.getFileLastRead(file.path);
+      if (lastRead == null || file.lastModifiedSync().isAfter(lastRead)) {
+        debugPrint('${file.path} has changed, parsing tasks');
+        final tasks = await vaultParser.parseTasksFromFile(file);
+
+        for (final task in tasks) {
+          Task? prev = await dbManager.getTaskById(task.id);
+          if (prev != null) {
+            if (prev.reminderDate != task.reminderDate) {
+              await flutterLocalNotificationsPlugin.cancel(task.id);
+              _setReminderForTask(task);
+              dbManager.insertTask(task);
+            }
+          } else {
+            _setReminderForTask(task);
+            dbManager.insertTask(task);
+          }
+        }
+
+        await dbManager.updateFileLastRead(file.path, DateTime.now());
+      }
+    }
+
+    // 7️⃣ Stop accessing resource
+    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
+      vaultDirectory,
+    );
+  }
+
   Future<void> _readVaultFilesTestAgainAgain() async {
     final databaseManager = DatabaseManager();
 
@@ -559,7 +627,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _readVaultFilesTestAgainAgain,
+        onPressed: _readVaultFilesTestAgainAgainAgain,
         tooltip: 'Parse Vault & Reload Tasks',
         child: const Icon(Icons.open_in_new_rounded),
       ),
