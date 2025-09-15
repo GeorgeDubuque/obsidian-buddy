@@ -414,8 +414,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   "Reminder date changed, updating task and notification",
                 );
                 await flutterLocalNotificationsPlugin.cancel(dbTask.id);
-                _setReminderForTask(dbTask);
-                await dbManager.updateTask(dbTask);
+                _setReminderForTask(existingTaskInFile);
+                await dbManager.updateTask(existingTaskInFile);
               } else {
                 debugPrint("Task unchanged, skipping");
               }
