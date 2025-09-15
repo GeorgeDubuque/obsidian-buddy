@@ -92,8 +92,7 @@ void main() async {
   }
 
   // vault selection
-  String? vaultFolderPath = await getVaultPath();
-  await selectVault();
+  VaultBookmarkManager.getOrCreateVaultPath();
 
   // initialize DB
   final dbManager = DatabaseManager();
@@ -119,7 +118,7 @@ Future<String?> pickVaultFolder() async {
 }
 
 Future<void> selectVault() async {
-  String? vaultFolderPath;
+  String? vaultPath;
 
   if (Platform.isAndroid) {
     // Only Android needs storage permission
@@ -131,15 +130,15 @@ Future<void> selectVault() async {
   }
 
   // Pick vault folder (works on Android & iOS)
-  vaultFolderPath = await FilePicker.platform.getDirectoryPath();
+  vaultPath = await VaultBookmarkManager.getOrCreateVaultPath();
 
-  if (vaultFolderPath == null) {
+  if (vaultPath == null) {
     debugPrint('User cancelled folder selection.');
     return;
   }
 
-  setVaultPath(vaultFolderPath);
-  debugPrint('Vault path set to: $vaultFolderPath');
+  setVaultPath(vaultPath);
+  debugPrint('Vault path set to: $vaultPath');
 }
 
 @pragma('vm:entry-point')
@@ -317,34 +316,14 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _readVaultFilesWithBookmarks() async {
     final dbManager = DatabaseManager();
     final vaultParser = VaultParser('');
-    late String vaultPath;
+    late String? vaultPath;
     bool needsNewBookmark = false;
 
-    print("=== Starting _readVaultFilesWithBookmarks ===");
+    debugPrint("=== Starting _readVaultFilesWithBookmarks ===");
 
-    String? bookmark = await VaultBookmarkManager.getSavedBookmark();
-    print("Bookmark exists: ${bookmark != null}");
+    vaultPath = await VaultBookmarkManager.getOrCreateVaultPath();
 
-    if (bookmark != null) {
-      try {
-        // Try to resolve saved bookmark
-        vaultPath = await VaultBookmarkManager.resolveBookmark(bookmark);
-        print("Successfully resolved bookmark to: $vaultPath");
-      } catch (e) {
-        print("Failed to resolve saved bookmark: $e");
-        needsNewBookmark = true;
-      }
-    } else {
-      needsNewBookmark = true;
-    }
-
-    if (needsNewBookmark) {
-      // User must pick the vault folder
-      String? selectedPath = await FilePicker.platform.getDirectoryPath();
-      if (selectedPath == null) return; // user cancelled
-      vaultPath = selectedPath;
-      print("User selected new path: $vaultPath");
-    }
+    if (vaultPath == null) return;
 
     final vaultDirectory = Directory(vaultPath);
     print("Directory exists: ${await vaultDirectory.exists()}");

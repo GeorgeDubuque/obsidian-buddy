@@ -1,4 +1,6 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VaultBookmarkManager {
@@ -20,6 +22,38 @@ class VaultBookmarkManager {
   static Future<String?> getSavedBookmark() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('vault_bookmark');
+  }
+
+  static Future<String?> getOrCreateVaultPath() async {
+    String? bookmark = await VaultBookmarkManager.getSavedBookmark();
+    bool needsNewBookmark = false;
+    debugPrint("Bookmark exists: ${bookmark != null}");
+
+    String? vaultPath;
+
+    if (bookmark != null) {
+      try {
+        // Try to resolve saved bookmark
+        vaultPath = await VaultBookmarkManager.resolveBookmark(bookmark);
+        debugPrint("Successfully resolved bookmark to: $vaultPath");
+      } catch (e) {
+        debugPrint("Failed to resolve saved bookmark: $e");
+        needsNewBookmark = true;
+      }
+    } else {
+      needsNewBookmark = true;
+    }
+
+    if (needsNewBookmark) {
+      // User must pick the vault folder
+      String? selectedPath = await FilePicker.platform.getDirectoryPath();
+      if (selectedPath == null)
+        return null; // TODO: user cancelled need to gracefully fail
+      vaultPath = selectedPath;
+      print("User selected new path: $vaultPath");
+    }
+
+    return vaultPath;
   }
 
   /// Resolve a bookmark into a path
