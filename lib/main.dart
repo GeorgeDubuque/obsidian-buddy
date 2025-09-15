@@ -61,6 +61,27 @@ void main() async {
                   DarwinNotificationActionOption.foreground,
                 },
               ),
+              DarwinNotificationAction.plain(
+                'snooze-5-minutes',
+                'Snooze 5 Minutes',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                'snooze-1-hour',
+                'Snooze 1 Hour',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                'snooze-1-day',
+                'Snooze 1 Day',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
             ],
             options: <DarwinNotificationCategoryOption>{
               DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
