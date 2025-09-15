@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:obsidian_buddy/bookmark.dart';
 import 'package:obsidian_buddy/constants.dart';
 import 'package:obsidian_buddy/databaseManager.dart';
 import 'package:obsidian_buddy/task.dart';
@@ -312,6 +313,82 @@ class _MyHomePageState extends State<MyHomePage> {
     _loadTasks();
   }
 
+  Future<void> _readVaultFilesTestAgain() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? bookmark = prefs.getString('vault_bookmark');
+
+    late String vaultPath;
+    if (bookmark != null) {
+      // Resolve saved bookmark
+      try {
+        vaultPath = await Bookmarks.resolveBookmark(bookmark);
+      } catch (e) {
+        debugPrint('Failed to resolve bookmark, picking folder: $e');
+        bookmark = null;
+      }
+    }
+
+    if (bookmark == null) {
+      // Pick folder and create bookmark
+      String? selectedPath = await FilePicker.platform.getDirectoryPath();
+      if (selectedPath == null) return;
+
+      vaultPath = selectedPath;
+
+      try {
+        bookmark = await Bookmarks.createBookmark(vaultPath);
+        await prefs.setString('vault_bookmark', bookmark);
+      } catch (e) {
+        debugPrint('Failed to create bookmark: $e');
+        return;
+      }
+    }
+
+    final vaultDir = Directory(vaultPath);
+    final grantedAccessToVault = await SecurityScopedResource.instance
+        .startAccessingSecurityScopedResource(vaultDir);
+
+    debugPrint('Granted access to $vaultPath: $grantedAccessToVault');
+
+    // Your existing parsing logic
+    VaultParser vaultParser = VaultParser(vaultPath);
+    DatabaseManager databaseManager = DatabaseManager();
+    List<File> files = vaultParser.getFilesInFolder(vaultPath);
+
+    for (File file in files) {
+      DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
+        file.path,
+      );
+
+      if (lastReadFileDateTime == null ||
+          file.lastModifiedSync().isAfter(lastReadFileDateTime)) {
+        debugPrint('${file.path} has been updated, parsing tasks');
+
+        List<Task> tasks = await vaultParser.parseTasksFromFile(file);
+
+        for (Task task in tasks) {
+          Task? prevTaskVersion = await databaseManager.getTaskById(task.id);
+          if (prevTaskVersion != null) {
+            if (prevTaskVersion.reminderDate != task.reminderDate) {
+              await flutterLocalNotificationsPlugin.cancel(task.id);
+              _setReminderForTask(task);
+              databaseManager.insertTask(task);
+            }
+          } else {
+            _setReminderForTask(task);
+            databaseManager.insertTask(task);
+          }
+        }
+
+        await databaseManager.updateFileLastRead(file.path, DateTime.now());
+      }
+    }
+
+    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
+      vaultDir,
+    );
+  }
+
   Future<void> _readVaultFilesTest() async {
     String? vaultPath = await getVaultPath();
     if (vaultPath == null) return;
@@ -405,7 +482,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _readVaultFilesAndReload,
+        onPressed: _readVaultFilesTestAgain,
         tooltip: 'Parse Vault & Reload Tasks',
         child: const Icon(Icons.open_in_new_rounded),
       ),
