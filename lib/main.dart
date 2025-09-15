@@ -56,52 +56,29 @@ void main() async {
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
-  final DarwinInitializationSettings initializationSettingsDarwin =
-      DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestSoundPermission: true,
-        requestBadgePermission: true,
-        requestProvisionalPermission: true,
-        requestCriticalPermission: true,
-        notificationCategories: [
-          DarwinNotificationCategory(
-            'reminder',
-            actions: <DarwinNotificationAction>[
-              DarwinNotificationAction.plain(
-                snooze5SecondsId,
-                'Snooze 5 Seconds',
-                options: <DarwinNotificationActionOption>{
-                  DarwinNotificationActionOption.foreground,
-                },
-              ),
-              DarwinNotificationAction.plain(
-                snooze5MinutesId,
-                'Snooze 5 Minutes',
-                options: <DarwinNotificationActionOption>{
-                  DarwinNotificationActionOption.foreground,
-                },
-              ),
-              DarwinNotificationAction.plain(
-                snooze1HourId,
-                'Snooze 1 Hour',
-                options: <DarwinNotificationActionOption>{
-                  DarwinNotificationActionOption.foreground,
-                },
-              ),
-              DarwinNotificationAction.plain(
-                snooze1DayId,
-                'Snooze 1 Day',
-                options: <DarwinNotificationActionOption>{
-                  DarwinNotificationActionOption.foreground,
-                },
-              ),
-            ],
-            options: <DarwinNotificationCategoryOption>{
-              DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
-            },
-          ),
+  final DarwinInitializationSettings
+  initializationSettingsDarwin = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestSoundPermission: true,
+    requestBadgePermission: true,
+    requestProvisionalPermission: true,
+    requestCriticalPermission: true,
+    notificationCategories: [
+      DarwinNotificationCategory(
+        'reminder',
+        actions: <DarwinNotificationAction>[
+          DarwinNotificationAction.plain(snooze5SecondsId, 'Snooze 5 Seconds'),
+          DarwinNotificationAction.plain(snooze1MinutesId, 'Snooze 1 Minute'),
+          DarwinNotificationAction.plain(snooze5MinutesId, 'Snooze 5 Minutes'),
+          DarwinNotificationAction.plain(snooze1HourId, 'Snooze 1 Hour'),
+          DarwinNotificationAction.plain(snooze1DayId, 'Snooze 1 Day'),
         ],
-      );
+        options: <DarwinNotificationCategoryOption>{
+          DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+        },
+      ),
+    ],
+  );
 
   final InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
@@ -212,6 +189,9 @@ Future<void> handleSnooze(NotificationResponse notificationResponse) async {
       switch (notificationResponse.actionId) {
         case snooze5SecondsId:
           reminderTime = reminderTime.add(Duration(seconds: 5));
+          _setReminderForTask(task, reminderTime);
+        case snooze1MinutesId:
+          reminderTime = reminderTime.add(Duration(minutes: 1));
           _setReminderForTask(task, reminderTime);
         case snooze5MinutesId:
           reminderTime = reminderTime.add(Duration(minutes: 5));

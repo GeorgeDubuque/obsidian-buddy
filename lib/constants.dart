@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 const String snooze5SecondsId = 'snooze-5-seconds';
+const String snooze1MinutesId = 'snooze-1-minutes';
 const String snooze5MinutesId = 'snooze-5-minutes';
 const String snooze1HourId = 'snooze-1-hour';
 const String snooze1DayId = 'snooze-1-day';
