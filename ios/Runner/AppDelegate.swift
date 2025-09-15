@@ -1,5 +1,6 @@
 import UIKit
 import Flutter
+import flutter_local_notifications
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
@@ -8,10 +9,10 @@ import Flutter
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-      // This is required to make any communication available in the action isolate.
-      FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { (registry) in
-        GeneratedPluginRegistrant.register(with: registry)
-      }
+    // This is required to make any communication available in the action isolate.
+    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { (registry) in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
     
     let controller: FlutterViewController = window?.rootViewController as! FlutterViewController
     let channel = FlutterMethodChannel(name: "security_scoped_bookmarks", binaryMessenger: controller.binaryMessenger)
