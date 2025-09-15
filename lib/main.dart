@@ -310,35 +310,44 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _readVaultFilesAndReload() async {
-    await _readVaultFilesTestAgainAgainAgain();
+    await _readVaultFilesWithBookmarks();
     _loadTasks();
   }
 
-  Future<void> _readVaultFilesTestAgainAgainAgain() async {
+  Future<void> _readVaultFilesWithBookmarks() async {
     final dbManager = DatabaseManager();
     final vaultParser = VaultParser('');
 
-    // 1️⃣ Try to get saved bookmark
-    String? bookmark = await VaultBookmarkManager.getSavedBookmark();
     String vaultPath;
+    String? bookmark = await VaultBookmarkManager.getSavedBookmark();
 
     if (bookmark != null) {
-      // 2️⃣ Resolve bookmark
-      vaultPath = await VaultBookmarkManager.resolveBookmark(bookmark);
-    } else {
-      // 3️⃣ User picks vault folder
+      try {
+        // Try to resolve saved bookmark
+        vaultPath = await VaultBookmarkManager.resolveBookmark(bookmark);
+      } catch (e) {
+        debugPrint("Failed to resolve saved bookmark: $e");
+        bookmark = null;
+      }
+    }
+
+    if (bookmark == null) {
+      // User must pick the vault folder
       String? selectedPath = await FilePicker.platform.getDirectoryPath();
       if (selectedPath == null) return; // user cancelled
       vaultPath = selectedPath;
 
-      // 4️⃣ Save a bookmark for future access
-      await VaultBookmarkManager.createAndSaveBookmark(vaultPath);
+      try {
+        // Save a bookmark for future access
+        await VaultBookmarkManager.createAndSaveBookmark(vaultPath);
+      } catch (e) {
+        debugPrint("Failed to create bookmark: $e");
+      }
     }
 
-    vaultParser.vaultPath = vaultPath;
-    final Directory vaultDirectory = Directory(vaultPath);
+    final vaultDirectory = Directory(vaultPath);
 
-    // 5️⃣ Start accessing security scoped resource (you already have this)
+    // Access the security-scoped resource
     bool granted = await SecurityScopedResource.instance
         .startAccessingSecurityScopedResource(vaultDirectory);
     if (!granted) {
@@ -348,8 +357,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
     debugPrint("Granted access to $vaultPath");
 
-    // 6️⃣ Enumerate files recursively
-    final List<File> files = vaultParser.getFilesInFolder(vaultPath);
+    // Enumerate markdown files
+    List<File> files = vaultParser.getFilesInFolder(vaultPath);
     debugPrint("Found ${files.length} markdown files.");
 
     for (File file in files) {
@@ -376,10 +385,12 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     }
 
-    // 7️⃣ Stop accessing resource
+    // Stop accessing resource when done
     await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
       vaultDirectory,
     );
+
+    debugPrint("Finished processing vault files.");
   }
 
   Future<void> _readVaultFilesTestAgain() async {
@@ -551,7 +562,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _readVaultFilesTestAgainAgainAgain,
+        onPressed: _readVaultFilesWithBookmarks,
         tooltip: 'Parse Vault & Reload Tasks',
         child: const Icon(Icons.open_in_new_rounded),
       ),
