@@ -179,55 +179,16 @@ Future<void> selectVault() async {
 void notificationTapBackground(
   NotificationResponse notificationResponse,
 ) async {
-  final String? payload = notificationResponse.payload;
-  debugPrint('notification id: ${notificationResponse.id}');
-  debugPrint('notification action id: ${notificationResponse.actionId}');
-
-  tz.initializeTimeZones();
-  final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-  tz.TZDateTime reminderTime = tz.TZDateTime.now(tz.local);
-
-  if (notificationResponse.payload != null) {
-    debugPrint('notification payload: ${notificationResponse.data.length}');
-
-    final List<dynamic> notificationDetailsDecoded =
-        jsonDecode(notificationResponse.payload!) as List<dynamic>;
-    int taskId = notificationDetailsDecoded[0];
-    int taskContent = notificationDetailsDecoded[1];
-
-    final DatabaseManager dbManager = DatabaseManager();
-    Task? task = await dbManager.getTaskById(taskId);
-
-    if (task != null) {
-      switch (notificationResponse.actionId) {
-        case snooze5SecondsId:
-          reminderTime = reminderTime.add(Duration(seconds: 5));
-          _setReminderForTask(task, reminderTime);
-        case snooze5MinutesId:
-          reminderTime = reminderTime.add(Duration(minutes: 5));
-          _setReminderForTask(task, reminderTime);
-        case snooze1HourId:
-          reminderTime = reminderTime.add(Duration(hours: 1));
-          _setReminderForTask(task, reminderTime);
-        case snooze1DayId:
-          reminderTime = reminderTime.add(Duration(days: 1));
-          _setReminderForTask(task, reminderTime);
-        case snooze1WeekId:
-          reminderTime = reminderTime.add(Duration(days: 7));
-          _setReminderForTask(task, reminderTime);
-        default:
-          reminderTime = reminderTime.add(Duration(minutes: 1));
-          _setReminderForTask(task, reminderTime);
-      }
-    }
-  }
+  await handleSnooze(notificationResponse);
 }
 
 void onDidReceiveNotificationResponse(
   NotificationResponse notificationResponse,
 ) async {
+  await handleSnooze(notificationResponse);
+}
+
+Future<void> handleSnooze(NotificationResponse notificationResponse) async {
   debugPrint('notification id: ${notificationResponse.id}');
   debugPrint('notification action id: ${notificationResponse.actionId}');
 
