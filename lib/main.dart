@@ -41,6 +41,18 @@ void main() async {
       >()
       ?.requestNotificationsPermission();
 
+  flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >()
+      ?.requestPermissions(
+        alert: true,
+        badge: true,
+        critical: true,
+        sound: true,
+        provisional: true,
+      );
+
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -191,22 +203,22 @@ void notificationTapBackground(
     if (task != null) {
       switch (notificationResponse.actionId) {
         case snooze5SecondsId:
-          reminderTime.add(Duration(seconds: 5));
+          reminderTime = reminderTime.add(Duration(seconds: 5));
           _setReminderForTask(task, reminderTime);
         case snooze5MinutesId:
-          reminderTime.add(Duration(minutes: 5));
+          reminderTime = reminderTime.add(Duration(minutes: 5));
           _setReminderForTask(task, reminderTime);
         case snooze1HourId:
-          reminderTime.add(Duration(hours: 1));
+          reminderTime = reminderTime.add(Duration(hours: 1));
           _setReminderForTask(task, reminderTime);
         case snooze1DayId:
-          reminderTime.add(Duration(days: 1));
+          reminderTime = reminderTime.add(Duration(days: 1));
           _setReminderForTask(task, reminderTime);
         case snooze1WeekId:
-          reminderTime.add(Duration(days: 7));
+          reminderTime = reminderTime.add(Duration(days: 7));
           _setReminderForTask(task, reminderTime);
         default:
-          reminderTime.add(Duration(minutes: 1));
+          reminderTime = reminderTime.add(Duration(minutes: 1));
           _setReminderForTask(task, reminderTime);
       }
     }
@@ -216,7 +228,6 @@ void notificationTapBackground(
 void onDidReceiveNotificationResponse(
   NotificationResponse notificationResponse,
 ) async {
-  final String? payload = notificationResponse.payload;
   debugPrint('notification id: ${notificationResponse.id}');
   debugPrint('notification action id: ${notificationResponse.actionId}');
 
@@ -232,7 +243,6 @@ void onDidReceiveNotificationResponse(
     final List<dynamic> notificationDetailsDecoded =
         jsonDecode(notificationResponse.payload!) as List<dynamic>;
     int taskId = notificationDetailsDecoded[0];
-    int taskContent = notificationDetailsDecoded[1];
 
     final DatabaseManager dbManager = DatabaseManager();
     Task? task = await dbManager.getTaskById(taskId);
@@ -240,22 +250,22 @@ void onDidReceiveNotificationResponse(
     if (task != null) {
       switch (notificationResponse.actionId) {
         case snooze5SecondsId:
-          reminderTime.add(Duration(seconds: 5));
+          reminderTime = reminderTime.add(Duration(seconds: 5));
           _setReminderForTask(task, reminderTime);
         case snooze5MinutesId:
-          reminderTime.add(Duration(minutes: 5));
+          reminderTime = reminderTime.add(Duration(minutes: 5));
           _setReminderForTask(task, reminderTime);
         case snooze1HourId:
-          reminderTime.add(Duration(hours: 1));
+          reminderTime = reminderTime.add(Duration(hours: 1));
           _setReminderForTask(task, reminderTime);
         case snooze1DayId:
-          reminderTime.add(Duration(days: 1));
+          reminderTime = reminderTime.add(Duration(days: 1));
           _setReminderForTask(task, reminderTime);
         case snooze1WeekId:
-          reminderTime.add(Duration(days: 7));
+          reminderTime = reminderTime.add(Duration(days: 7));
           _setReminderForTask(task, reminderTime);
         default:
-          reminderTime.add(Duration(minutes: 1));
+          reminderTime = reminderTime.add(Duration(minutes: 1));
           _setReminderForTask(task, reminderTime);
       }
     }
@@ -294,7 +304,7 @@ void _setReminderForTask(Task task, [TZDateTime? reminderTime]) async {
     task.task,
     reminderTime,
     notificationDetails,
-    payload: jsonEncode([task.task, task.task, actionSnooze5Seconds.id]),
+    payload: jsonEncode([task.id, task.task]),
     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
   );
 }
