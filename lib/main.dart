@@ -421,6 +421,7 @@ class _MyHomePageState extends State<MyHomePage> {
               _setReminderForTask(task);
               await dbManager.insertTask(task);
             }
+            _loadTasks();
           }
           await dbManager.updateFileLastRead(file.path, DateTime.now());
         } else {
