@@ -424,7 +424,7 @@ class _MyHomePageState extends State<MyHomePage> {
           }
           await dbManager.updateFileLastRead(file.path, DateTime.now());
         } else {
-          print("File ${file.path} hasn't changed since last read");
+          //print("File ${file.path} hasn't changed since last read");
         }
       }
     } finally {
