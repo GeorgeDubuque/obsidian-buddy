@@ -11,6 +11,7 @@ import 'package:obsidian_buddy/bookmark.dart';
 import 'package:obsidian_buddy/constants.dart';
 import 'package:obsidian_buddy/databaseManager.dart';
 import 'package:obsidian_buddy/task.dart';
+import 'package:obsidian_buddy/vault_bookmark_manager.dart';
 import 'package:obsidian_buddy/vault_parser.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:security_scoped_resource/security_scoped_resource.dart';
@@ -313,6 +314,82 @@ class _MyHomePageState extends State<MyHomePage> {
     _loadTasks();
   }
 
+  Future<void> _readVaultFilesTestAgainAgain() async {
+    final databaseManager = DatabaseManager();
+
+    Directory vaultDirectory;
+
+    // Try to resolve the saved bookmark
+    try {
+      vaultDirectory = await VaultBookmarkManager.resolveSavedBookmark();
+      debugPrint(
+        'Resolved vault directory from bookmark: ${vaultDirectory.path}',
+      );
+    } catch (e) {
+      // If no bookmark exists, ask the user to pick a folder
+      String? pickedPath = await FilePicker.platform.getDirectoryPath();
+      if (pickedPath == null) {
+        debugPrint('No vault directory selected.');
+        return;
+      }
+      vaultDirectory = Directory(pickedPath);
+
+      // Create and save bookmark for future access
+      await VaultBookmarkManager.createAndSaveBookmark(vaultDirectory);
+      debugPrint(
+        'Created bookmark for vault directory: ${vaultDirectory.path}',
+      );
+    }
+
+    // Start accessing security-scoped resource
+    final granted = await SecurityScopedResource.instance
+        .startAccessingSecurityScopedResource(vaultDirectory);
+    if (!granted) {
+      debugPrint('Cannot access vault: permission denied');
+      return;
+    }
+    debugPrint('Granted access to ${vaultDirectory.path}');
+
+    // Parse files
+    final vaultParser = VaultParser(vaultDirectory.path);
+    final files = vaultParser.getFilesInFolder(vaultDirectory.path);
+    debugPrint('Found ${files.length} markdown files.');
+
+    for (File file in files) {
+      DateTime? lastReadFileDateTime = await databaseManager.getFileLastRead(
+        file.path,
+      );
+
+      if (lastReadFileDateTime == null ||
+          file.lastModifiedSync().isAfter(lastReadFileDateTime)) {
+        debugPrint('${file.path} has been updated, parsing tasks');
+
+        final tasks = await vaultParser.parseTasksFromFile(file);
+        for (final task in tasks) {
+          final prevTaskVersion = await databaseManager.getTaskById(task.id);
+          if (prevTaskVersion != null) {
+            if (prevTaskVersion.reminderDate != task.reminderDate) {
+              await flutterLocalNotificationsPlugin.cancel(task.id);
+              _setReminderForTask(task);
+              databaseManager.insertTask(task);
+            }
+          } else {
+            _setReminderForTask(task);
+            databaseManager.insertTask(task);
+          }
+        }
+
+        await databaseManager.updateFileLastRead(file.path, DateTime.now());
+      }
+    }
+
+    // Stop accessing security-scoped resource
+    await SecurityScopedResource.instance.stopAccessingSecurityScopedResource(
+      vaultDirectory,
+    );
+    debugPrint('Stopped access to ${vaultDirectory.path}');
+  }
+
   Future<void> _readVaultFilesTestAgain() async {
     final prefs = await SharedPreferences.getInstance();
     String? bookmark = prefs.getString('vault_bookmark');
@@ -482,7 +559,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _readVaultFilesTestAgain,
+        onPressed: _readVaultFilesTestAgainAgain,
         tooltip: 'Parse Vault & Reload Tasks',
         child: const Icon(Icons.open_in_new_rounded),
       ),
